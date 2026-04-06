@@ -1,0 +1,34 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install pyinstaller openpyxl
+    
+    - name: Build executable
+      run: |
+        pyinstaller --onefile --name STS2_CardViewer --add-data "sts2_cards.xlsx;." --console --clean sts2_card_viewer.py
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: STS2_CardViewer
+        path: |
+          dist/STS2_CardViewer.exe
+          sts2_cards.xlsx
