@@ -5,7 +5,7 @@ a = Analysis(
     ['sts2_card_viewer.py'],
     pathex=[],
     binaries=[],
-    datas=[('sts2_cards.xlsx', '.')],
+    datas=[('/home/alvin/sts2_cards.xlsx', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

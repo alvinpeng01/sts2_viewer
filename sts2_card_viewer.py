@@ -13,7 +13,7 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-EXCEL_FILE = os.path.join(BASE_DIR, "sts2_cards.xlsx")
+EXCEL_FILE = os.path.join(os.getcwd(), "sts2_cards.xlsx")
 
 CLASS_COLORS = {
     "IRONCLAD": "FF8B8B",
