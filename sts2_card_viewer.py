@@ -1856,7 +1856,7 @@ class STSCardViewer(tk.Tk):
         self.history_dir = find_sts2_history_dir()
         if self.history_dir:
             self.path_label.config(text=self.history_dir, foreground="black")
-            self.load_excel_data()
+            self.generate_data()
         else:
             self.path_label.config(
                 text="Not found - click Browse to select", foreground="red"
