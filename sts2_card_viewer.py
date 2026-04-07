@@ -1655,11 +1655,11 @@ def create_excel(pick_by_class, win_by_class, relic_stats, output_path):
         row += 1
 
     ws.column_dimensions["A"].width = 25
-    ws.column_dimensions["B"].width = 25
+    ws.column_dimensions["B"].width = 30
     ws.column_dimensions["C"].width = 10
     ws.column_dimensions["D"].width = 10
     ws.column_dimensions["E"].width = 10
-    ws.column_dimensions["F"].width = 80
+    ws.column_dimensions["F"].width = 60
 
     wb.save(output_path)
     return sum(len(cards) for cards in pick_by_class.values())
