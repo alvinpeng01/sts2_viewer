@@ -146,6 +146,8 @@ def get_ancient_relic_data(runs):
             }
         )
     )
+    # Filter out non-relic values
+    invalid_keys = {"IRONCLAD", "SILENT", "DEFECT", "NECROBINDER", "REGENT", ""}
     for run in runs:
         is_win = run.get("win", False)
         players = run.get("players", [])
@@ -163,17 +165,19 @@ def get_ancient_relic_data(runs):
                     continue
                 event_id = rooms[0].get("model_id", "").replace("EVENT.", "")
                 for stat in point.get("player_stats", []):
-                    for relic_choice in stat.get("relic_choices", []):
-                        rid = relic_choice.get("choice", "").replace("RELIC.", "")
-                        was_picked = relic_choice.get("was_picked", False)
+                    for ancient_choice in stat.get("ancient_choice", []):
+                        rid = ancient_choice.get("TextKey", "").replace("RELIC.", "")
+                        if rid in invalid_keys:
+                            continue
+                        was_chosen = ancient_choice.get("was_chosen", False)
                         ancient_stats[event_id][rid]["offered"] += 1
                         ancient_stats[event_id][rid]["by_class"][char]["offered"] += 1
-                        if was_picked:
+                        if was_chosen:
                             ancient_stats[event_id][rid]["picked"] += 1
                             ancient_stats[event_id][rid]["by_class"][char][
                                 "picked"
                             ] += 1
-                        if was_picked and is_win:
+                        if was_chosen and is_win:
                             ancient_stats[event_id][rid]["wins"] += 1
                             ancient_stats[event_id][rid]["by_class"][char]["wins"] += 1
     return ancient_stats
