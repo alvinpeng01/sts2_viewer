@@ -6,9 +6,9 @@ A statistics viewer for Slay the Spire 2 runs. Parse your game saves and view ca
 
 - **Card Statistics**: See how often each card is offered and picked, with pick rates and win rates per class
 - **Relic Statistics**: Track relic appearances and win rates with descriptions
-- **Multi-Class Support**: Ironclad, Silent, Defect, Necrobinder, Regent, and Colorless cards
+- **Multi-Class Support**: Ironclad, Silent, Defect, Necrobinder, and Regent
 - **Cross-Class Cards**: Cards picked into decks are tracked with their original class
-- **Auto-Detection**: Automatically finds STS2 save files on Windows, Mac, and Linux
+- **Auto-Detection**: Automatically finds STS2 save files on Windows and Linux
 - **Excel Export**: Generates detailed spreadsheets with all statistics
 - **Standalone Executable**: No Python required to run
 
@@ -23,11 +23,6 @@ The app automatically detects your save files, but if needed:
 **Windows:**
 ```
 %APPDATA%\SlayTheSpire2\steam\<profile>\saves\history\
-```
-
-**Mac:**
-```
-~/Library/Application Support/SlayTheSpire2/steam/<profile>/saves/history/
 ```
 
 **Linux:**
