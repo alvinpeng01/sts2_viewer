@@ -1,6 +1,6 @@
 # STS2 Card Viewer
 
-A statistics viewer for Slay the Spire 2 runs. Parse your game saves and view card pick/win rates and relic statistics organized by character class.
+A statistics viewer for Slay the Spire 2 runs. Parse your game saves and view card pick/win rates and relic statistics organized by character class. (Only works on public version)
 
 ## Features
 
