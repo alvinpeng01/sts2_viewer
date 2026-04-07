@@ -1,11 +1,13 @@
 # STS2 Card Viewer
 
-A statistics viewer for Slay the Spire 2 runs. Parse your game saves and view card pick/win rates and relic statistics organized by character class. (Only works on public version)
+A statistics viewer for Slay the Spire 2 runs. Parse your game saves and view card pick/win rates and relic statistics organized by character class.
 
 ## Features
 
 - **Card Statistics**: See how often each card is offered and picked, with pick rates and win rates per class
-- **Relic Statistics**: Track relic appearances and win rates with descriptions
+- **Relic Statistics**: Track relic appearances and win rates with descriptions, per-class breakdown
+- **Event Statistics**: Track which event choices you pick and win rates
+- **Ancient Relic Tracking**: See which relics are offered at ancient events (Neow, Tezcatara, etc.)
 - **Multi-Class Support**: Ironclad, Silent, Defect, Necrobinder, and Regent
 - **Cross-Class Cards**: Cards picked into decks are tracked with their original class
 - **Auto-Detection**: Automatically finds STS2 save files on Windows and Linux
@@ -53,12 +55,12 @@ The executable will be in `dist/STS2_CardViewer`.
 
 ## Usage
 
-1. Run the app
+1. Run the app - data is automatically generated on startup
 2. Click "Help" to see detected save folder path
-3. Select a character class tab (Ironclad, Silent, etc.)
-4. Use search to filter cards
-5. Click any column header to sort
-6. Click "Export to Excel" to save the current view
+3. Browse tabs: Cards, Relics, Events, Ancient Relics
+4. Use search to filter items
+5. Click column headers to sort
+6. Click "Refresh" to regenerate data
 
 ## Data Privacy
 
