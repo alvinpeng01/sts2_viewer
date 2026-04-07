@@ -580,6 +580,9 @@ class STSCardViewer(tk.Tk):
         ttk.Button(top_frame, text="Generate Data", command=self.generate_data).pack(
             side="left", padx=5
         )
+        ttk.Button(top_frame, text="Help", command=self.show_help).pack(
+            side="right", padx=5
+        )
 
         toolbar = ttk.Frame(self)
         toolbar.pack(fill="x", padx=5, pady=5)
@@ -786,6 +789,31 @@ class STSCardViewer(tk.Tk):
 
     def refresh(self):
         self.find_and_load_data()
+
+    def show_help(self):
+        help_text = """How to find your STS2 save folder:
+
+WINDOWS:
+%LOCALAPPDATA%\\SlayTheSpire2\\steam\\<profile>\\saves\\history
+
+To open: Press Win+R, type %LOCALAPPDATA%, press Enter
+Then navigate to SlayTheSpire2 > steam > (profile folder) > saves > history
+
+MAC:
+~/Library/Application Support/SlayTheSpire2/steam/<profile>/saves/history
+
+To open: Press Cmd+Shift+G in Finder, paste the path above
+
+LINUX:
+~/.local/share/SlayTheSpire2/steam/<profile>/saves/history
+
+To open: Press Ctrl+L in file manager, paste ~/.local/share/SlayTheSpire2/
+
+NOTE: <profile> is usually a number like 76561198054269638
+
+If auto-detection fails, click "Browse" and select the folder 
+containing your .run files (usually the "history" folder)."""
+        messagebox.showinfo("Help - Finding STS2 Save Files", help_text)
 
 
 if __name__ == "__main__":
