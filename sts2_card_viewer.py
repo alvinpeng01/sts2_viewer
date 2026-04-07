@@ -596,6 +596,8 @@ class STSCardViewer(tk.Tk):
         self.history_dir = None
         self.card_data = {}
         self.relic_data = []
+        self.event_data = []
+        self.ancient_data = []
         self.all_data = []
         self.current_class = None
 
@@ -625,13 +627,16 @@ class STSCardViewer(tk.Tk):
         self.cards_frame = ttk.Frame(self.notebook)
         self.relics_frame = ttk.Frame(self.notebook)
         self.events_frame = ttk.Frame(self.notebook)
+        self.ancient_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.cards_frame, text="Cards")
         self.notebook.add(self.relics_frame, text="Relics")
         self.notebook.add(self.events_frame, text="Events")
+        self.notebook.add(self.ancient_frame, text="Ancient Relics")
 
         self.create_cards_tab()
         self.create_relics_tab()
         self.create_events_tab()
+        self.create_ancient_tab()
 
         self.status_label = ttk.Label(self, text="", relief="sunken", anchor="w")
         self.status_label.pack(fill="x", padx=5, pady=2)
@@ -852,6 +857,124 @@ class STSCardViewer(tk.Tk):
         self.event_desc_label.pack(fill="x", padx=5, pady=2)
         self.event_tree.bind("<<TreeviewSelect>>", self.on_event_select)
 
+    def create_ancient_tab(self):
+        toolbar = ttk.Frame(self.ancient_frame)
+        toolbar.pack(fill="x", padx=5, pady=5)
+
+        ttk.Label(toolbar, text="Search:").pack(side="left", padx=5)
+        self.ancient_search_var = tk.StringVar()
+        self.ancient_search_entry = ttk.Entry(
+            toolbar, textvariable=self.ancient_search_var, width=20
+        )
+        self.ancient_search_entry.pack(side="left")
+        self.ancient_search_entry.bind("<KeyRelease>", lambda e: self.filter_ancient())
+        ttk.Button(toolbar, text="Refresh", command=self.refresh).pack(
+            side="right", padx=5
+        )
+
+        main_frame = ttk.Frame(self.ancient_frame)
+        main_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        columns = (
+            "Event",
+            "Relic",
+            "Offered",
+            "Picked",
+            "Pick%",
+            "Wins",
+            "Win%",
+            "Description",
+        )
+        self.ancient_tree = ttk.Treeview(
+            main_frame, columns=columns, show="headings", selectmode="browse"
+        )
+
+        self.ancient_tree.heading("Event", text="Event")
+        self.ancient_tree.heading("Relic", text="Relic")
+        self.ancient_tree.heading("Offered", text="Offered")
+        self.ancient_tree.heading("Picked", text="Picked")
+        self.ancient_tree.heading("Pick%", text="Pick%")
+        self.ancient_tree.heading("Wins", text="Wins")
+        self.ancient_tree.heading("Win%", text="Win%")
+        self.ancient_tree.heading("Description", text="Description")
+
+        self.ancient_tree.column("Event", width=120)
+        self.ancient_tree.column("Relic", width=150)
+        self.ancient_tree.column("Offered", width=60, anchor="e")
+        self.ancient_tree.column("Picked", width=60, anchor="e")
+        self.ancient_tree.column("Pick%", width=60, anchor="e")
+        self.ancient_tree.column("Wins", width=50, anchor="e")
+        self.ancient_tree.column("Win%", width=60, anchor="e")
+        self.ancient_tree.column("Description", width=400)
+
+        scrollbar_y = ttk.Scrollbar(
+            main_frame, orient="vertical", command=self.ancient_tree.yview
+        )
+        scrollbar_x = ttk.Scrollbar(
+            main_frame, orient="horizontal", command=self.ancient_tree.xview
+        )
+        self.ancient_tree.configure(
+            yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set
+        )
+
+        self.ancient_tree.pack(side="left", fill="both", expand=True)
+        scrollbar_y.pack(side="right", fill="y")
+        scrollbar_x.pack(side="bottom", fill="x")
+
+        self.ancient_tree.tag_configure("oddrow", background="#f0f0f0")
+        self.ancient_tree.tag_configure("evenrow", background="#ffffff")
+
+        self.ancient_desc_label = ttk.Label(
+            self.ancient_frame, text="", wraplength=700, justify="left"
+        )
+        self.ancient_desc_label.pack(fill="x", padx=5, pady=2)
+        self.ancient_tree.bind("<<TreeviewSelect>>", self.on_ancient_select)
+
+    def load_ancient(self):
+        self.all_ancient_data = self.ancient_data
+        self.filter_ancient()
+
+    def filter_ancient(self):
+        search = self.ancient_search_var.get().lower()
+        filtered = self.all_ancient_data
+        if search:
+            filtered = [
+                e
+                for e in self.all_ancient_data
+                if search in e["event"].lower() or search in e["relic"].lower()
+            ]
+
+        for row in self.ancient_tree.get_children():
+            self.ancient_tree.delete(row)
+
+        for i, item in enumerate(filtered):
+            tags = ("oddrow",) if i % 2 == 0 else ("evenrow",)
+            self.ancient_tree.insert(
+                "",
+                "end",
+                values=(
+                    item["event"],
+                    item["relic"],
+                    item["offered"],
+                    item["picked"],
+                    item["pick_rate"],
+                    item["wins"],
+                    item["win_rate"],
+                    item["description"],
+                ),
+                tags=tags,
+            )
+
+    def on_ancient_select(self, event):
+        selection = self.ancient_tree.selection()
+        if selection:
+            idx = self.ancient_tree.index(selection[0])
+            if idx < len(self.ancient_data):
+                item = self.ancient_data[idx]
+                self.ancient_desc_label.config(
+                    text=f"{item['relic']}: {item['description']}"
+                )
+
     def find_and_load_data(self):
         self.history_dir = find_sts2_history_dir()
         if self.history_dir:
@@ -963,6 +1086,21 @@ class STSCardViewer(tk.Tk):
                                     "by_class": by_class,
                                 }
                             )
+                elif class_name == "Ancient Relics":
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        if row[0]:
+                            self.ancient_data.append(
+                                {
+                                    "event": row[0],
+                                    "relic": row[1],
+                                    "offered": row[2],
+                                    "picked": row[3],
+                                    "pick_rate": row[4],
+                                    "wins": row[5],
+                                    "win_rate": row[6],
+                                    "description": row[22] if len(row) > 22 else "",
+                                }
+                            )
                 else:
                     self.card_data[class_name] = []
                     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -982,9 +1120,10 @@ class STSCardViewer(tk.Tk):
             self.load_class("IRONCLAD")
             self.load_relics()
             self.load_events()
+            self.load_ancient()
             runs = load_runs(self.history_dir) if self.history_dir else []
             self.status_label.config(
-                text=f"Loaded {sum(len(c) for c in self.card_data.values())} cards, {len(self.relic_data)} relics, {len(self.event_data)} events from {len(runs)} runs"
+                text=f"Loaded {sum(len(c) for c in self.card_data.values())} cards, {len(self.relic_data)} relics, {len(self.event_data)} events, {len(self.ancient_data)} ancient from {len(runs)} runs"
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load data: {e}")
