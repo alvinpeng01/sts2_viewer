@@ -1628,7 +1628,7 @@ def create_excel(pick_by_class, win_by_class, relic_stats, output_path):
     header_fill = PatternFill(
         start_color="CCCCCC", end_color="CCCCCC", fill_type="solid"
     )
-    headers = ["ID", "Name", "Runs", "Wins", "Win%", "Description"]
+    headers = ["ID", "Name", "Runs", "Wins", "Win%", "", "Description"]
 
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
@@ -1651,7 +1651,8 @@ def create_excel(pick_by_class, win_by_class, relic_stats, output_path):
         ws.cell(row=row, column=3, value=stats["total"])
         ws.cell(row=row, column=4, value=stats["wins"])
         ws.cell(row=row, column=5, value=round(win_rate, 1))
-        ws.cell(row=row, column=6, value=relic_info.get("description", ""))
+        ws.cell(row=row, column=6, value="")
+        ws.cell(row=row, column=7, value=relic_info.get("description", ""))
         row += 1
 
     ws.column_dimensions["A"].width = 25
@@ -1659,7 +1660,8 @@ def create_excel(pick_by_class, win_by_class, relic_stats, output_path):
     ws.column_dimensions["C"].width = 10
     ws.column_dimensions["D"].width = 10
     ws.column_dimensions["E"].width = 10
-    ws.column_dimensions["F"].width = 60
+    ws.column_dimensions["F"].width = 5
+    ws.column_dimensions["G"].width = 55
 
     wb.save(output_path)
     return sum(len(cards) for cards in pick_by_class.values())
@@ -1925,7 +1927,7 @@ class STSCardViewer(tk.Tk):
                                     "total": row[2],
                                     "wins": row[3],
                                     "win_rate": row[4],
-                                    "description": row[5],
+                                    "description": row[6] if len(row) > 6 else "",
                                 }
                             )
                 else:
@@ -1944,7 +1946,6 @@ class STSCardViewer(tk.Tk):
                                     "win_rate": row[7],
                                 }
                             )
-
             self.load_class("IRONCLAD")
             self.load_relics()
             runs = load_runs(self.history_dir) if self.history_dir else []
