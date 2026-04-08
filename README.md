@@ -8,6 +8,9 @@ A statistics viewer for Slay the Spire 2 runs. Parse your game saves and view ca
 - **Relic Statistics**: Track relic appearances and win rates with descriptions, per-class breakdown
 - **Event Statistics**: Track which event choices you pick and win rates
 - **Ancient Relic Tracking**: See which relics are offered at ancient events (Neow, Tezcatara, etc.)
+- **Encounter Tracking**: View damage taken per encounter with act numbers and enemy names
+- **Sortable Columns**: Click any column header to sort in all tabs
+- **Command-Line Version**: Use `sts2_stats.py` for headless environments
 - **Multi-Class Support**: Ironclad, Silent, Defect, Necrobinder, and Regent
 - **Cross-Class Cards**: Cards picked into decks are tracked with their original class
 - **Auto-Detection**: Automatically finds STS2 save files on Windows and Linux
@@ -57,10 +60,18 @@ The executable will be in `dist/STS2_CardViewer`.
 
 1. Run the app - data is automatically generated on startup
 2. Click "Help" to see detected save folder path
-3. Browse tabs: Cards, Relics, Events, Ancient Relics
+3. Browse tabs: Cards, Relics, Events, Ancient Relics, Encounters
 4. Use search to filter items
 5. Click column headers to sort
 6. Click "Refresh" to regenerate data
+
+### Command-Line
+
+```bash
+python sts2_stats.py -o output.xlsx
+```
+
+Use `-d` to specify a custom save directory.
 
 ## Data Privacy
 
