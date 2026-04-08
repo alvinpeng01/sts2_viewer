@@ -6,7 +6,7 @@ import os
 import sys
 import glob
 import json
-from collections import defaultdict
+from collections import defaultdict, Counter
 from data.card_classifications import CARD_CLASSIFICATIONS
 from data.relic_info import RELIC_INFO
 from data.event_info import EVENT_INFO
@@ -183,6 +183,43 @@ def get_ancient_relic_data(runs):
     return ancient_stats
 
 
+def get_encounter_data(runs):
+    """Track damage taken from each encounter"""
+    encounter_stats = defaultdict(
+        lambda: {
+            "count": 0,
+            "total_damage": 0,
+            "wins": 0,
+            "acts": defaultdict(int),
+            "enemies": Counter(),
+        }
+    )
+    for run in runs:
+        is_win = run.get("win", False)
+        for act_idx, act in enumerate(run.get("map_point_history", [])):
+            for point in act:
+                rooms = point.get("rooms", [])
+                if not rooms:
+                    continue
+                room = rooms[0]
+                room_id = room.get("model_id", "")
+                if "ENCOUNTER" not in room_id:
+                    continue
+                encounter_id = room_id.replace("ENCOUNTER.", "")
+                monster_ids = room.get("monster_ids", [])
+                for stat in point.get("player_stats", []):
+                    damage = stat.get("damage_taken", 0)
+                    encounter_stats[encounter_id]["count"] += 1
+                    encounter_stats[encounter_id]["total_damage"] += damage
+                    encounter_stats[encounter_id]["acts"][act_idx + 1] += 1
+                    for m in monster_ids:
+                        m_name = m.replace("MONSTER.", "")
+                        encounter_stats[encounter_id]["enemies"][m_name] += 1
+                    if is_win:
+                        encounter_stats[encounter_id]["wins"] += 1
+    return encounter_stats
+
+
 def get_event_data(runs):
     event_stats = defaultdict(
         lambda: defaultdict(
@@ -239,7 +276,13 @@ def get_event_data(runs):
 
 
 def create_excel(
-    pick_by_class, win_by_class, relic_stats, event_stats, ancient_stats, output_path
+    pick_by_class,
+    win_by_class,
+    relic_stats,
+    event_stats,
+    ancient_stats,
+    encounter_stats,
+    output_path,
 ):
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
@@ -580,9 +623,63 @@ def create_excel(
         ws.column_dimensions[get_column_letter(8 + i * 3)].width = 6
         ws.column_dimensions[get_column_letter(8 + i * 3 + 1)].width = 6
         ws.column_dimensions[get_column_letter(8 + i * 3 + 2)].width = 7
-    ws.column_dimensions["W"].width = 5
-    ws.column_dimensions["X"].width = 5
-    ws.column_dimensions["Y"].width = 50
+        ws.column_dimensions["W"].width = 5
+        ws.column_dimensions["X"].width = 5
+        ws.column_dimensions["Y"].width = 50
+
+    # Add Encounters sheet
+    ws = wb.create_sheet(title="Encounters")
+    header_fill = PatternFill(
+        start_color="CC6666", end_color="CC6666", fill_type="solid"
+    )
+    headers = [
+        "Encounter",
+        "Act#",
+        "Enemy Name",
+        "Times",
+        "Total Damage",
+        "Avg Damage",
+        "Wins",
+        "Win%",
+    ]
+
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    row = 2
+    encounters_list = [(eid, stats) for eid, stats in encounter_stats.items()]
+    encounters_list.sort(key=lambda x: x[1]["count"], reverse=True)
+
+    for encounter_id, stats in encounters_list:
+        avg_damage = stats["total_damage"] / stats["count"] if stats["count"] > 0 else 0
+        win_rate = (stats["wins"] / stats["count"] * 100) if stats["count"] > 0 else 0
+
+        most_common_act = (
+            max(stats["acts"].items(), key=lambda x: x[1])[0] if stats["acts"] else "-"
+        )
+        enemy_list = ", ".join(stats["enemies"].keys()) if stats["enemies"] else "-"
+
+        ws.cell(row=row, column=1, value=encounter_id)
+        ws.cell(row=row, column=2, value=most_common_act)
+        ws.cell(row=row, column=3, value=enemy_list)
+        ws.cell(row=row, column=4, value=stats["count"])
+        ws.cell(row=row, column=5, value=stats["total_damage"])
+        ws.cell(row=row, column=6, value=round(avg_damage, 1))
+        ws.cell(row=row, column=7, value=stats["wins"])
+        ws.cell(row=row, column=8, value=round(win_rate, 1))
+        row += 1
+
+    ws.column_dimensions["A"].width = 40
+    ws.column_dimensions["B"].width = 8
+    ws.column_dimensions["C"].width = 30
+    ws.column_dimensions["D"].width = 10
+    ws.column_dimensions["E"].width = 15
+    ws.column_dimensions["F"].width = 15
+    ws.column_dimensions["G"].width = 10
+    ws.column_dimensions["H"].width = 10
 
     wb.save(output_path)
     return sum(len(cards) for cards in pick_by_class.values())
@@ -598,6 +695,7 @@ class STSCardViewer(tk.Tk):
         self.relic_data = []
         self.event_data = []
         self.ancient_data = []
+        self.encounters_data = []
         self.all_data = []
         self.current_class = None
 
@@ -628,15 +726,18 @@ class STSCardViewer(tk.Tk):
         self.relics_frame = ttk.Frame(self.notebook)
         self.events_frame = ttk.Frame(self.notebook)
         self.ancient_frame = ttk.Frame(self.notebook)
+        self.encounters_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.cards_frame, text="Cards")
         self.notebook.add(self.relics_frame, text="Relics")
         self.notebook.add(self.events_frame, text="Events")
         self.notebook.add(self.ancient_frame, text="Ancient Relics")
+        self.notebook.add(self.encounters_frame, text="Encounters")
 
         self.create_cards_tab()
         self.create_relics_tab()
         self.create_events_tab()
         self.create_ancient_tab()
+        self.create_encounters_tab()
 
         self.status_label = ttk.Label(self, text="", relief="sunken", anchor="w")
         self.status_label.pack(fill="x", padx=5, pady=2)
@@ -889,14 +990,32 @@ class STSCardViewer(tk.Tk):
             main_frame, columns=columns, show="headings", selectmode="browse"
         )
 
-        self.ancient_tree.heading("Event", text="Event")
-        self.ancient_tree.heading("Relic", text="Relic")
-        self.ancient_tree.heading("Offered", text="Offered")
-        self.ancient_tree.heading("Picked", text="Picked")
-        self.ancient_tree.heading("Pick%", text="Pick%")
-        self.ancient_tree.heading("Wins", text="Wins")
-        self.ancient_tree.heading("Win%", text="Win%")
-        self.ancient_tree.heading("Description", text="Description")
+        self.ancient_tree.heading(
+            "Event", text="Event", command=lambda: self.sort_ancient("event")
+        )
+        self.ancient_tree.heading(
+            "Relic", text="Relic", command=lambda: self.sort_ancient("relic")
+        )
+        self.ancient_tree.heading(
+            "Offered", text="Offered", command=lambda: self.sort_ancient("offered")
+        )
+        self.ancient_tree.heading(
+            "Picked", text="Picked", command=lambda: self.sort_ancient("picked")
+        )
+        self.ancient_tree.heading(
+            "Pick%", text="Pick%", command=lambda: self.sort_ancient("pick_rate")
+        )
+        self.ancient_tree.heading(
+            "Wins", text="Wins", command=lambda: self.sort_ancient("wins")
+        )
+        self.ancient_tree.heading(
+            "Win%", text="Win%", command=lambda: self.sort_ancient("win_rate")
+        )
+        self.ancient_tree.heading(
+            "Description",
+            text="Description",
+            command=lambda: self.sort_ancient("description"),
+        )
 
         self.ancient_tree.column("Event", width=120)
         self.ancient_tree.column("Relic", width=150)
@@ -944,6 +1063,17 @@ class STSCardViewer(tk.Tk):
                 if search in e["event"].lower() or search in e["relic"].lower()
             ]
 
+        reverse = getattr(self, "_ancient_sort_reverse", False)
+        key = getattr(self, "_ancient_sort_key", "offered")
+
+        def get_val(item):
+            val = item.get(key)
+            if isinstance(val, str):
+                return val.lower()
+            return val if val else 0
+
+        filtered = sorted(filtered, key=get_val, reverse=reverse)
+
         for row in self.ancient_tree.get_children():
             self.ancient_tree.delete(row)
 
@@ -965,6 +1095,12 @@ class STSCardViewer(tk.Tk):
                 tags=tags,
             )
 
+    def sort_ancient(self, key):
+        reverse = getattr(self, "_ancient_sort_reverse", False)
+        self._ancient_sort_reverse = not reverse
+        self._ancient_sort_key = key
+        self.filter_ancient()
+
     def on_ancient_select(self, event):
         selection = self.ancient_tree.selection()
         if selection:
@@ -974,6 +1110,146 @@ class STSCardViewer(tk.Tk):
                 self.ancient_desc_label.config(
                     text=f"{item['relic']}: {item['description']}"
                 )
+
+    def create_encounters_tab(self):
+        toolbar = ttk.Frame(self.encounters_frame)
+        toolbar.pack(fill="x", padx=5, pady=5)
+
+        ttk.Label(toolbar, text="Search:").pack(side="left", padx=5)
+        self.encounters_search_var = tk.StringVar()
+        self.encounters_search_entry = ttk.Entry(
+            toolbar, textvariable=self.encounters_search_var, width=20
+        )
+        self.encounters_search_entry.pack(side="left")
+        self.encounters_search_entry.bind(
+            "<KeyRelease>", lambda e: self.filter_encounters()
+        )
+        ttk.Button(toolbar, text="Refresh", command=self.refresh).pack(
+            side="right", padx=5
+        )
+
+        main_frame = ttk.Frame(self.encounters_frame)
+        main_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        columns = (
+            "Encounter",
+            "Act#",
+            "Enemy",
+            "Times",
+            "Total Dmg",
+            "Avg Dmg",
+            "Wins",
+            "Win%",
+        )
+        self.encounters_tree = ttk.Treeview(
+            main_frame, columns=columns, show="headings", selectmode="browse"
+        )
+
+        self.encounters_tree.heading("Encounter", text="Encounter")
+        self.encounters_tree.heading("Act#", text="Act#")
+        self.encounters_tree.heading("Enemy", text="Enemy")
+        self.encounters_tree.heading("Times", text="Times")
+        self.encounters_tree.heading("Total Dmg", text="Total Damage")
+        self.encounters_tree.heading("Avg Dmg", text="Avg Damage")
+        self.encounters_tree.heading("Wins", text="Wins")
+        self.encounters_tree.heading("Win%", text="Win%")
+
+        self.encounters_tree.column("Encounter", width=150)
+        self.encounters_tree.column("Act#", width=50, anchor="e")
+        self.encounters_tree.column("Enemy", width=280)
+        self.encounters_tree.column("Times", width=60, anchor="e")
+        self.encounters_tree.column("Total Dmg", width=80, anchor="e")
+        self.encounters_tree.column("Avg Dmg", width=80, anchor="e")
+        self.encounters_tree.column("Wins", width=60, anchor="e")
+        self.encounters_tree.column("Win%", width=60, anchor="e")
+
+        scrollbar_y = ttk.Scrollbar(
+            main_frame, orient="vertical", command=self.encounters_tree.yview
+        )
+        self.encounters_tree.configure(yscrollcommand=scrollbar_y.set)
+        self.encounters_tree.pack(side="left", fill="both", expand=True)
+        scrollbar_y.pack(side="right", fill="y")
+
+        self.encounters_tree.tag_configure("oddrow", background="#f0f0f0")
+        self.encounters_tree.tag_configure("evenrow", background="#ffffff")
+
+        self.encounters_sort_col = "Times"
+        self.encounters_sort_rev = True
+        for col in columns:
+            self.encounters_tree.heading(
+                col, text=col, command=lambda c=col: self.sort_encounters(c)
+            )
+
+    def load_encounters(self):
+        self.all_encounters_data = self.encounters_data
+        self.filter_encounters()
+
+    def filter_encounters(self):
+        search = self.encounters_search_var.get().lower()
+        filtered = self.all_encounters_data
+        if search:
+            filtered = [
+                e
+                for e in self.all_encounters_data
+                if search in e["encounter"].lower()
+                or search in e.get("enemy", "").lower()
+            ]
+
+        col = self.encounters_sort_col
+        reverse = self.encounters_sort_rev
+        col_map = {
+            "Encounter": "encounter",
+            "Act#": "act",
+            "Enemy": "enemy",
+            "Times": "times",
+            "Total Dmg": "total_damage",
+            "Avg Dmg": "avg_damage",
+            "Wins": "wins",
+            "Win%": "win_rate",
+        }
+        key_col = col_map.get(col, "times")
+        filtered = sorted(
+            filtered, key=lambda x: self._sort_key(x, key_col), reverse=reverse
+        )
+
+        for row in self.encounters_tree.get_children():
+            self.encounters_tree.delete(row)
+
+        for i, item in enumerate(filtered):
+            tags = ("oddrow",) if i % 2 == 0 else ("evenrow",)
+            self.encounters_tree.insert(
+                "",
+                "end",
+                values=(
+                    item["encounter"],
+                    item.get("act", "-"),
+                    item.get("enemy", "-"),
+                    item["times"],
+                    item["total_damage"],
+                    item["avg_damage"],
+                    item["wins"],
+                    item["win_rate"],
+                ),
+                tags=tags,
+            )
+
+    def _sort_key(self, item, key):
+        val = item.get(key)
+        if key == "enemy":
+            return val.lower() if val else ""
+        if key == "act":
+            return val if val else 0
+        if isinstance(val, str):
+            return val.lower()
+        return val if val else 0
+
+    def sort_encounters(self, col):
+        if self.encounters_sort_col == col:
+            self.encounters_sort_rev = not self.encounters_sort_rev
+        else:
+            self.encounters_sort_col = col
+            self.encounters_sort_rev = True
+        self.filter_encounters()
 
     def find_and_load_data(self):
         self.history_dir = find_sts2_history_dir()
@@ -1023,17 +1299,19 @@ class STSCardViewer(tk.Tk):
         relic_stats = get_relic_data(runs)
         event_stats = get_event_data(runs)
         ancient_stats = get_ancient_relic_data(runs)
+        encounter_stats = get_encounter_data(runs)
         total = create_excel(
             pick_by_class,
             win_by_class,
             relic_stats,
             event_stats,
             ancient_stats,
+            encounter_stats,
             EXCEL_FILE,
         )
 
         self.status_label.config(
-            text=f"Generated {total} cards, {len(relic_stats)} relics, {sum(len(e) for e in event_stats.values())} events, {len(ancient_stats)} ancient relics from {len(runs)} runs"
+            text=f"Generated {total} cards, {len(relic_stats)} relics, {sum(len(e) for e in event_stats.values())} events, {len(ancient_stats)} ancient relics, {len(encounter_stats)} encounters from {len(runs)} runs"
         )
         self.load_excel_data()
 
@@ -1101,6 +1379,21 @@ class STSCardViewer(tk.Tk):
                                     "description": row[22] if len(row) > 22 else "",
                                 }
                             )
+                elif class_name == "Encounters":
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        if row[0]:
+                            self.encounters_data.append(
+                                {
+                                    "encounter": row[0],
+                                    "act": row[1],
+                                    "enemy": row[2],
+                                    "times": row[3],
+                                    "total_damage": row[4],
+                                    "avg_damage": row[5],
+                                    "wins": row[6],
+                                    "win_rate": row[7],
+                                }
+                            )
                 else:
                     self.card_data[class_name] = []
                     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -1121,9 +1414,10 @@ class STSCardViewer(tk.Tk):
             self.load_relics()
             self.load_events()
             self.load_ancient()
+            self.load_encounters()
             runs = load_runs(self.history_dir) if self.history_dir else []
             self.status_label.config(
-                text=f"Loaded {sum(len(c) for c in self.card_data.values())} cards, {len(self.relic_data)} relics, {len(self.event_data)} events, {len(self.ancient_data)} ancient from {len(runs)} runs"
+                text=f"Loaded {sum(len(c) for c in self.card_data.values())} cards, {len(self.relic_data)} relics, {len(self.event_data)} events, {len(self.ancient_data)} ancient, {len(self.encounters_data)} encounters from {len(runs)} runs"
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load data: {e}")
