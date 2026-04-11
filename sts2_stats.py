@@ -169,10 +169,26 @@ def get_event_data(runs):
                     for choice in stat.get("event_choices", []):
                         title_key = choice.get("title", {}).get("key", "")
                         if "options." in title_key:
-                            choice_id = title_key.split("options.")[-1].split(".")[0]
+                            parts = title_key.split("options.")
+                            if len(parts) > 1:
+                                choice_id = parts[-1].split(".")[0]
+                            else:
+                                choice_id = "DEFAULT"
                         else:
                             choice_id = "DEFAULT"
+
+                        # Normalize: HOLD_ON_0 -> HOLD_ON, etc.
+                        if "_" in choice_id:
+                            base = choice_id.rsplit("_", 1)
+                            if base[1].isdigit():
+                                base_choice_id = base[0]
+                            else:
+                                base_choice_id = choice_id
+                        else:
+                            base_choice_id = choice_id
+
                         event_stats[event_id][choice_id]["total"] += 1
+                        event_stats[event_id][choice_id]["base_id"] = base_choice_id
                         event_stats[event_id][choice_id]["by_class"][char]["total"] += 1
                         if is_win:
                             event_stats[event_id][choice_id]["wins"] += 1
@@ -453,7 +469,13 @@ def create_excel(
         )
 
         choice_choices = EVENT_CHOICES.get(event_id, {})
-        choice_desc = choice_choices.get(choice, choice)
+        # Use normalized base_id if available, otherwise normalize from choice
+        base_id = stats.get("base_id", choice)
+        if "_" in base_id:
+            parts = base_id.rsplit("_", 1)
+            if parts[1].isdigit():
+                base_id = parts[0]
+        choice_desc = choice_choices.get(base_id, choice_choices.get(choice, choice))
         if choice == "DEFAULT":
             choice_desc = event_info.get("description", "Default")[:50]
 
