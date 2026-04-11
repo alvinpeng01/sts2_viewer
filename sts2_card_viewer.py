@@ -1360,7 +1360,9 @@ class STSCardViewer(tk.Tk):
                                     "total": row[2],
                                     "wins": row[3],
                                     "win_rate": row[4],
-                                    "description": row[6] if len(row) > 6 else "",
+                                    "description": row[22]
+                                    if len(row) > 22 and row[22]
+                                    else "",
                                     "by_class": by_class,
                                 }
                             )
